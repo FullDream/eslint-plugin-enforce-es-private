@@ -1,1 +1,1 @@
-# eslint-plugin-enforce-ecma-private
+# eslint-plugin-enforce-es-private
