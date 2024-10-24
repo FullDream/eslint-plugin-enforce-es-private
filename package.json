@@ -1,6 +1,6 @@
 {
 	"name": "eslint-plugin-enforce-es-private",
-	"version": "1.0.0-alpha",
+	"version": "1.0.0-alpha.1",
 	"description": "An ESLint plugin to enforce the use of native ES private fields ('#') instead of the 'private' modifier in TypeScript.",
 	"license": "MIT",
 	"author": "Pavel Rybakin",
@@ -16,6 +16,7 @@
 	},
 	"scripts": {
 		"build": "tsc",
+		"publish": "tsc && npm publish",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"repository": {
