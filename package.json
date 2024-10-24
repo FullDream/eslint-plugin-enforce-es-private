@@ -1,0 +1,53 @@
+{
+	"name": "eslint-plugin-enforce-es-private",
+	"version": "1.0.0-alpha",
+	"description": "An ESLint plugin to enforce the use of native ES private fields ('#') instead of the 'private' modifier in TypeScript.",
+	"license": "MIT",
+	"author": "Pavel Rybakin",
+	"homepage": "https://github.com/FullDream/eslint-plugin-enforce-es-private",
+	"bugs": "https://github.com/FullDream/eslint-plugin-enforce-es-private/issues",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": [
+		"dist"
+	],
+	"private": "false",
+	"engines": {
+		"node": ">= 18"
+	},
+	"scripts": {
+		"build": "tsc",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/FullDream/eslint-plugin-enforce-es-private.git"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.13.0",
+		"@types/node": "^22.7.9",
+		"@typescript-eslint/eslint-plugin": "^8.11.0",
+		"@typescript-eslint/parser": "^8.11.0",
+		"@typescript-eslint/rule-tester": "^8.11.0",
+		"eslint": "^9.13.0",
+		"prettier": "3.3.3",
+		"typescript": "^5.6.3",
+		"typescript-eslint": "^8.11.0"
+	},
+	"peerDependencies": {
+		"@typescript-eslint/parser": "^>=8",
+		"eslint": "^>=9",
+		"typescript": "^>=^5"
+	},
+	"dependencies": {
+		"@typescript-eslint/utils": "^8.11.0"
+	},
+	"keywords": [
+		"eslint",
+		"eslint-plugin",
+		"ecmascript",
+		"typescript",
+		"typescript-eslint",
+		"lint"
+	]
+}
