@@ -1,4 +1,6 @@
-import { rules } from './rules.js'
+import { rules } from './rules'
+
+type RulesType = Record<`enforce-es-private/${keyof typeof rules}`, 'error' | 'warn' | 'off'>
 
 const { name, version } =
 	// `import`ing here would bypass the TSConfig's `"rootDir": "src"`
@@ -17,8 +19,10 @@ Object.assign(plugin.configs, {
 			'enforce-es-private': plugin,
 		},
 		rules: {
-			'enforce-es-private/enforce-es-private': 'error',
-		},
+			'enforce-es-private/typescript-private': 'error',
+			'enforce-es-private/underscore-prefix': 'error'
+
+		} as RulesType,
 	},
 })
 
