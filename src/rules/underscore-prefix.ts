@@ -1,14 +1,11 @@
 import { createRule } from '../utils'
 import { TSESTree } from '@typescript-eslint/utils'
-import { RuleContext, RuleFixer } from '@typescript-eslint/utils/ts-eslint'
+import { reportToContext } from '../common/report-to-context'
 
-
-type MessageIds = 'enforceEsPrivateField' | 'enforceEsPrivateMethod';
-type Options = [];
 
 const name = 'underscore-prefix'
 
-const rule = createRule<Options, MessageIds>({
+const rule = createRule({
 	name,
 	defaultOptions: [],
 	create(context) {
@@ -16,39 +13,30 @@ const rule = createRule<Options, MessageIds>({
 			PropertyDefinition(node: TSESTree.PropertyDefinition) {
 				if (
 					node.key.type === 'Identifier' &&
-					node.key.name.startsWith('_') &&
-					!node.static
+					node.key.name.startsWith('_')
 				) {
-					const originalName = node.key.name;
-					const privateName = `#${originalName.slice(1)}`;
-					const fix = replaceAllReferencesInClass(node, context, originalName, privateName);
-
-					if (fix) {
-						context.report({
-							node: node.key,
-							messageId: "enforceEsPrivateField",
-							fix
-						});
-					}
+					reportToContext({
+						context,
+						originalName: node.key.name,
+						isTypeScriptPrivate: false,
+						type: 'Field',
+						node,
+					})
 				}
 			},
 			MethodDefinition(node: TSESTree.MethodDefinition) {
 				if (
 					node.key.type === 'Identifier' &&
-					node.key.name.startsWith('_') &&
-					!node.static
+					node.key.name.startsWith('_')
 				) {
-					const originalName = node.key.name;
-					const privateName = `#${originalName.slice(1)}`;
-					const fix = replaceAllReferencesInClass(node, context, originalName, privateName);
+					reportToContext({
+						context,
+						originalName: node.key.name,
+						isTypeScriptPrivate: false,
+						type: 'Method',
+						node,
+					})
 
-					if (fix) {
-						context.report({
-							node: node.key,
-							messageId: "enforceEsPrivateMethod",
-							fix
-						});
-					}
 				}
 			}
 		};
@@ -65,31 +53,15 @@ const rule = createRule<Options, MessageIds>({
 		},
 		messages: {
 			enforceEsPrivateField: "Use native ES private fields ('#') instead of underscore('_') prefix.",
+			enforceEsPrivateFieldOutside:
+				"Use native ES private fields ('#') instead of underscore('_') prefix. Property \"{{name}}\" is referenced outside the class — remove reference",
 			enforceEsPrivateMethod: "Use native ES private methods ('#') instead of underscore('_') prefix.",
+			enforceEsPrivateMethodOutside:
+				"Use native ES private methods ('#') instead of underscore('_') prefix. Property \"{{name}}\" is referenced outside the class — remove reference",
 		},
 		schema: [],
 	},
 })
 
-
-const replaceAllReferencesInClass = (
-	node: TSESTree.PropertyDefinition | TSESTree.MethodDefinition,
-	context: RuleContext<MessageIds, Options>,
-	originalName: string,
-	privateName: string
-) => {
-	const classBody = node.parent?.type === 'ClassBody' ? node.parent : null;
-
-	if (classBody) {
-		let classText = context.sourceCode.getText(classBody);
-
-		const regex = new RegExp(`\\b${originalName}\\b`, 'g');
-		classText = classText.replace(regex, privateName);
-
-		return (fixer: RuleFixer) => fixer.replaceText(classBody, classText);
-	}
-
-	return null;
-}
 
 export default { name, rule } as const
