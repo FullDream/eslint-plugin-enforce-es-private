@@ -12,7 +12,6 @@ export function replaceAllReferencesInClass<R extends TSESLint.RuleContext<strin
 		return null
 	}
 
-	// Стек для обхода дерева внутри classBody
 	const stack: TSESTree.Node[] = [classBody]
 	const identifiersToReplace: TSESTree.Identifier[] = []
 
