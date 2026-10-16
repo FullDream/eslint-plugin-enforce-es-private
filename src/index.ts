@@ -10,7 +10,12 @@ const { name, version } =
 	require('../package.json') as typeof import('../package.json')
 
 const recommendedRules: RulesType = {
-	'enforce-es-private/typescript-private': 'error',
+	'enforce-es-private/typescript-private': 'off',
+	'enforce-es-private/fields': 'error',
+	'enforce-es-private/methods': 'error',
+	'enforce-es-private/getters': 'error',
+	'enforce-es-private/setters': 'error',
+	'enforce-es-private/auto-accessors': 'error',
 }
 
 const plugin: {

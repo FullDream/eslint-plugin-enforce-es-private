@@ -3,9 +3,9 @@
 Prefer native ECMAScript private fields and methods (`#name`) over TypeScript's
 `private` modifier. Native privacy is enforced at runtime.
 
-The recommended configuration enables one rule:
-[`enforce-es-private/typescript-private`](docs/rules/typescript-private.md).
-It reports without type information and offers conservative, symbol-aware fixes
+The recommended configuration enables separate rules for fields, methods,
+getters, setters and auto-accessors. Each supports its own ESLint severity.
+The rules report without type information and offer conservative, symbol-aware fixes
 when a TypeScript program is available.
 
 ## Compatibility
@@ -31,7 +31,7 @@ npm install --save-dev eslint typescript @typescript-eslint/parser eslint-plugin
 ## Usage: flat config
 
 Use the ready-to-use recommended config. It registers the TypeScript parser and
-plugin, enables the rule, and applies to `.ts`, `.tsx`, `.mts` and `.cts` files:
+plugin, enables the member rules, and applies to `.ts`, `.tsx`, `.mts` and `.cts` files:
 
 ```javascript
 // eslint.config.mjs
@@ -57,7 +57,7 @@ export default [enforceEsPrivate.configs['recommended-type-checked']]
 
 The typed preset requires linted TypeScript files to belong to a `tsconfig.json`.
 For standalone files without a TypeScript project, use `recommended`.
-Both presets configure the same rule; choose one.
+Both presets configure the same rules; choose one.
 
 Each flat preset is a named configuration object, following
 [ESLint's plugin configuration format](https://eslint.org/docs/latest/extend/plugins#configs-in-plugins).
@@ -74,7 +74,7 @@ export default [
 		files: ['src/**/*.ts'],
 		rules: {
 			...enforceEsPrivate.configs.recommended.rules,
-			'enforce-es-private/typescript-private': 'warn',
+			'enforce-es-private/fields': 'warn',
 		},
 	},
 ]
@@ -85,14 +85,15 @@ existing configuration enables type information, `recommended` uses it too.
 When using `parserOptions.project` with the typed preset, explicitly set
 `projectService: false`; do not enable both project mechanisms at once.
 
-To select the rule manually, configure the TypeScript parser, register the plugin
-as `enforce-es-private`, and enable `'enforce-es-private/typescript-private': 'error'`.
+To select rules manually, configure the TypeScript parser, register the plugin
+as `enforce-es-private`, and enable the desired member rules.
 
-## Choosing class members
+## Per-member severity
 
-Configure the `typescript-private` rule's `members` option to enforce native
-privacy only for selected kinds. For example, check fields and methods while
-allowing TypeScript-private getters and setters:
+Set each member rule to `error`, `warn` or `off` using
+[standard ESLint rule severities](https://eslint.org/docs/latest/use/configure/rules#rule-severities).
+For example, require native private fields, warn about methods and setters, and
+allow TypeScript-private getters and auto-accessors:
 
 ```javascript
 import enforceEsPrivate from 'eslint-plugin-enforce-es-private'
@@ -102,26 +103,41 @@ export default [
 		...enforceEsPrivate.configs['recommended-type-checked'],
 		rules: {
 			...enforceEsPrivate.configs['recommended-type-checked'].rules,
-			'enforce-es-private/typescript-private': [
-				'error',
-				{
-					members: ['fields', 'methods'],
-				},
-			],
+			'enforce-es-private/fields': 'error',
+			'enforce-es-private/methods': 'warn',
+			'enforce-es-private/getters': 'off',
+			'enforce-es-private/setters': 'warn',
+			'enforce-es-private/auto-accessors': 'off',
 		},
 	},
 ]
 ```
 
-Available kinds: `fields`, `methods`, `getters`, `setters`, `autoAccessors`,
-`parameterProperties` and `constructors`. By default, all kinds are checked.
-A supplied list checks only those kinds; an empty list disables all checks.
-Static and instance members follow the same selection. For diagnostics without
-a TypeScript project, use `configs.recommended` with the same rule options.
+| Rule                                             | Checked declarations                                           |
+| ------------------------------------------------ | -------------------------------------------------------------- |
+| [`fields`](docs/rules/fields.md)                 | Instance/static fields, including readonly fields              |
+| [`methods`](docs/rules/methods.md)               | Instance/static methods, including async and generator methods |
+| [`getters`](docs/rules/getters.md)               | Instance/static `get` accessors                                |
+| [`setters`](docs/rules/setters.md)               | Instance/static `set` accessors                                |
+| [`auto-accessors`](docs/rules/auto-accessors.md) | `accessor` declarations                                        |
+
+All five rules default to `error` in the recommended presets and accept no
+options. Numeric severities `2`, `1` and `0` also work. For diagnostics without a
+TypeScript project, use `configs.recommended` with the same severity overrides.
+
+Constructors and constructor parameter properties such as
+`constructor(private api: Api)` are ignored: neither has a direct `#` equivalent.
+They retain their TypeScript syntax without diagnostics or autofix.
 
 Getter/setter pairs still require manual migration, including when only one half
-is selected. See the [rule options](docs/rules/typescript-private.md#options) for
-details and examples of each category.
+is enabled. All member rules share the same
+[autofix safety checks](docs/rules/typescript-private.md#autofix).
+
+The aggregate [`typescript-private`](docs/rules/typescript-private.md) rule remains
+available for existing manual configurations, including its `members` option
+(`fields`, `methods`, `getters`, `setters`, `autoAccessors`). It applies one severity
+to every selected kind. Recommended presets disable it to prevent duplicate
+diagnostics. Avoid enabling it alongside the independent member rules.
 
 ## Usage: legacy config (ESLint 8/9)
 
@@ -236,4 +252,11 @@ Replace `...enforceEsPrivate.configs.recommended[0]` inside an object with
 `...enforceEsPrivate.configs.recommended`. To enable type-aware autofix without
 manually setting parser options, use `configs['recommended-type-checked']`.
 Custom file patterns can be supplied with an object spread. The
-`legacy-recommended` configuration retains its existing shape and behavior.
+`legacy-recommended` configuration retains its `.eslintrc` format and uses the
+same independent member rules as the flat presets.
+
+Recommended presets now enable `fields`, `methods`, `getters`, `setters` and
+`auto-accessors` individually and disable `typescript-private`. Replace overrides
+of the aggregate rule with overrides of the member rules, using the examples in
+[Per-member severity](#per-member-severity). Existing manual configurations can
+continue using `typescript-private` on its own.

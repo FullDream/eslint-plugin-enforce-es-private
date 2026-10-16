@@ -1,10 +1,12 @@
 # typescript-private
 
 Prefer ECMAScript private members (`#name`) over TypeScript's `private` modifier.
-This rule is enabled by all recommended configurations.
-For flat config, use `[plugin.configs.recommended]` for diagnostics or
-`[plugin.configs['recommended-type-checked']]` to enable Project Service and safe
-autofix in a TypeScript project. Both presets include the parser and file patterns.
+This aggregate rule is available for manual configurations and uses one severity
+for all selected member kinds. Recommended presets enable the independent
+[`fields`](fields.md), [`methods`](methods.md), [`getters`](getters.md),
+[`setters`](setters.md) and [`auto-accessors`](auto-accessors.md) rules instead,
+allowing separate `error`, `warn` and `off` settings. Do not enable the aggregate
+rule alongside those rules for the same declarations.
 
 ```ts
 // Before
@@ -32,10 +34,11 @@ class Counter {
 
 Public and protected members, `_prefixed` public members, and existing `#members`
 are allowed. Existing spelling is preserved: `private _value` becomes `#_value`.
-Methods, accessors, parameter properties, quoted and computed private declarations
-are reported, but some require manual migration. A private constructor controls
-instantiation and has no `#constructor` equivalent; retain it with a local rule
-disable or exclude `constructors` when that restriction is intentional.
+Methods, accessors, quoted and computed private declarations are reported, but
+some require manual migration. Constructors and constructor parameter properties
+are always ignored. `private constructor()` controls instantiation, and
+`constructor(private api: Api)` declares a parameter property; neither can be
+directly rewritten with `#`. No rule disable is needed for either construct.
 
 ## Options
 
@@ -48,17 +51,15 @@ reported. The list replaces the default selection; unlisted kinds are ignored.
 }]
 ```
 
-| Member kind           | Includes                                                                         |
-| --------------------- | -------------------------------------------------------------------------------- |
-| `fields`              | Class fields, including quoted/computed declarations and readonly fields         |
-| `methods`             | Regular, async and generator methods; excludes getters, setters and constructors |
-| `getters`             | `get` accessors                                                                  |
-| `setters`             | `set` accessors                                                                  |
-| `autoAccessors`       | `accessor` declarations                                                          |
-| `parameterProperties` | Constructor parameter properties such as `constructor(private value: number)`    |
-| `constructors`        | Private constructors; reported without autofix because `#constructor` is invalid |
+| Member kind     | Includes                                                                         |
+| --------------- | -------------------------------------------------------------------------------- |
+| `fields`        | Class fields, including quoted/computed declarations and readonly fields         |
+| `methods`       | Regular, async and generator methods; excludes getters, setters and constructors |
+| `getters`       | `get` accessors                                                                  |
+| `setters`       | `set` accessors                                                                  |
+| `autoAccessors` | `accessor` declarations                                                          |
 
-Omitting the options object or `members` enables all seven kinds, preserving the
+Omitting the options object or `members` enables all five supported kinds, preserving the
 default behavior. `members: []` disables all checks. The same selection applies
 to static and instance members. Public, protected and native private members are
 still ignored.
@@ -86,7 +87,7 @@ unsupported uses, including:
 -   Destructuring, object spread, deletion, the `in` operator, or passing an instance
     to a call that could inspect its properties (including reflection APIs).
 -   Native private name collisions, getter/setter pairs, overloads, decorators,
-    parameter properties, auto-accessors, ambient/declared members, or overrides.
+    auto-accessors, ambient/declared members, or overrides.
 -   Static access through `this`, whose receiver can be a derived constructor.
 -   A TypeScript compilation target below ES2015, which cannot compile `#members`.
 

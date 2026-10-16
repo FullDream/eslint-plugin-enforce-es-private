@@ -3,7 +3,11 @@ import { TSESLint } from '@typescript-eslint/utils'
 
 const config: TSESLint.FlatConfig.Config = {
 	plugins: { 'enforce-es-private': plugin },
-	rules: { 'enforce-es-private/typescript-private': 'error' },
+	rules: {
+		'enforce-es-private/fields': 'error',
+		'enforce-es-private/methods': 'warn',
+		'enforce-es-private/getters': 'off',
+	},
 }
 
 const recommended: TSESLint.FlatConfig.Config = plugin.configs.recommended

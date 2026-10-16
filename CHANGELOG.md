@@ -4,6 +4,10 @@
 
 ### BREAKING CHANGES
 
+-   Recommended flat and legacy presets now enable `fields`, `methods`, `getters`,
+    `setters` and `auto-accessors` as independent rules, each at `error`, and
+    disable the aggregate `typescript-private` rule. Move preset severity
+    overrides to the member rules. The aggregate rule remains available manually.
 -   Change `configs.recommended` from a one-element array to a flat config object.
     Insert it directly (`[plugin.configs.recommended]`), remove array spreading
     and `[0]` indexing, and use object spread for overrides. The preset now
@@ -24,16 +28,20 @@
     keys, external references or unsupported runtime operations are present.
 -   Withhold unsafe fixes for optional chains, `any`, reflection, destructuring,
     spread, static `this`, accessor pairs, overloads and private name collisions.
--   Report private methods correctly, plus private parameter properties and
-    non-identifier declarations that previously escaped diagnostics.
+-   Ignore private constructors and constructor parameter properties, which have
+    no direct native-private equivalent. Fix other class members and their
+    references inside constructors while retaining these declarations.
+-   Report private methods correctly, plus non-identifier declarations that
+    previously escaped diagnostics.
 -   Export usable CommonJS TypeScript declarations and link rule documentation.
 -   Clean build output before packaging so the removed rule is not shipped.
 
 ### Added
 
--   A `members` rule option to select fields, methods, getters, setters,
-    auto-accessors, parameter properties and constructors independently. All
-    kinds remain enabled by default; selecting a subset preserves autofix safety.
+-   Independent `fields`, `methods`, `getters`, `setters` and `auto-accessors`
+    rules with standard ESLint `error`, `warn` and `off` severities per member kind.
+-   A `members` option on the aggregate `typescript-private` rule to select fields,
+    methods, getters, setters and auto-accessors at one shared severity.
 -   Ready-to-use named flat presets: `recommended` and `recommended-type-checked`.
     The typed preset enables Project Service for safe autofix; both include the
     parser, plugin registration, file patterns and recommended rule.

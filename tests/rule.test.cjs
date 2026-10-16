@@ -9,7 +9,17 @@ const plugin = require('../dist')
 const filename = path.resolve(__dirname, 'input.ts')
 const normalize = file => path.resolve(file).replaceAll('\\', '/').toLowerCase()
 
-function lint(code, { typed = true, others = {}, target = ts.ScriptTarget.ES2022, ruleOptions = [] } = {}) {
+function lint(
+	code,
+	{
+		typed = true,
+		others = {},
+		target = ts.ScriptTarget.ES2022,
+		ruleOptions = [],
+		ruleName = 'typescript-private',
+		severity = 'error',
+	} = {},
+) {
 	const files = new Map([
 		[filename, code],
 		...Object.entries(others).map(([name, text]) => [path.resolve(__dirname, name), text]),
@@ -40,7 +50,7 @@ function lint(code, { typed = true, others = {}, target = ts.ScriptTarget.ES2022
 			files: ['**/*.ts'],
 			languageOptions: { parser, parserOptions: typed ? { programs: [program] } : {} },
 			plugins: { 'enforce-es-private': plugin },
-			rules: { 'enforce-es-private/typescript-private': ['error', ...ruleOptions] },
+			rules: { [`enforce-es-private/${ruleName}`]: [severity, ...ruleOptions] },
 		},
 	]
 	const messages = new Linter({ configType: 'flat' }).verify(code, config, { filename })
@@ -83,6 +93,32 @@ function unchanged(code, options) {
 test('public, protected, underscores and native private members are allowed', () => {
 	assert.deepEqual(lint('class C { _value = 1; protected value = 2; #secret = 3; _method() {} }').messages, [])
 })
+
+for (const [name, code] of [
+	['private constructor', 'class C { private constructor() {} }'],
+	['protected constructor', 'class C { protected constructor() {} }'],
+	[
+		'private constructor overloads',
+		'class C { private constructor(value: number); private constructor(value: number) {} }',
+	],
+	['ambient private constructor', 'declare class C { private constructor() }'],
+	['private parameter property', 'class C { constructor(private value: number) {} }'],
+	[
+		'readonly private parameter property',
+		'class C { constructor(private readonly value: number) {} read() { return this.value } }',
+	],
+	['optional private parameter property', 'class C { constructor(private value?: number) {} }'],
+	['default private parameter property', 'class C { constructor(private value = 1) {} }'],
+	[
+		'private constructor with a parameter property',
+		'class C { private constructor(private readonly value: number) {} }',
+	],
+]) {
+	test(`ignore unsupported native private member: ${name}`, () => {
+		assert.deepEqual(lint(code).messages, [])
+		assert.deepEqual(lint(code, { typed: false, ruleOptions: [{ members: ['methods', 'fields'] }] }).messages, [])
+	})
+}
 
 for (const [title, code, expected] of [
 	[
@@ -156,6 +192,46 @@ for (const [title, code, expected] of [
 		'class C { async *#value() { yield 1 } read() { return this.#value() } }',
 	],
 	[
+		'async method',
+		'class C { private async value() { return 1 } read() { return this.value() } }',
+		'class C { async #value() { return 1 } read() { return this.#value() } }',
+	],
+	[
+		'generator method',
+		'class C { private *value() { yield 1 } read() { return this.value() } }',
+		'class C { *#value() { yield 1 } read() { return this.#value() } }',
+	],
+	[
+		'static method',
+		'class C { private static value() { return 1 } static read() { return C.value() } }',
+		'class C { static #value() { return 1 } static read() { return C.#value() } }',
+	],
+	[
+		'static getter',
+		'class C { private static get value() { return 1 } static read() { return C.value } }',
+		'class C { static get #value() { return 1 } static read() { return C.#value } }',
+	],
+	[
+		'static setter',
+		'class C { private static set value(v: number) {} static write() { C.value = 1 } }',
+		'class C { static set #value(v: number) {} static write() { C.#value = 1 } }',
+	],
+	[
+		'field initialized in a private constructor with a parameter property',
+		'class C { private value: number; private constructor(private readonly api: number) { this.value = api } read() { return this.value + this.api } }',
+		'class C { #value: number; private constructor(private readonly api: number) { this.#value = api } read() { return this.#value + this.api } }',
+	],
+	[
+		'private method used by a constructor parameter initializer',
+		'class C { private value() { return 1 } constructor(private api = this.value()) {} }',
+		'class C { #value() { return 1 } constructor(private api = this.#value()) {} }',
+	],
+	[
+		'nested class inside an ignored constructor',
+		'class C { private constructor() { class D { private value = 1; read() { return this.value } } } }',
+		'class C { private constructor() { class D { #value = 1; read() { return this.#value } } } }',
+	],
+	[
 		'unrelated string property',
 		"const o = { value: 2 }; o['value']; class C { private value = 1; read() { return this.value } }",
 		"const o = { value: 2 }; o['value']; class C { #value = 1; read() { return this.#value } }",
@@ -187,14 +263,12 @@ for (const [title, code] of [
 	['private collision', 'class C { private value = 1; #value = 2 }'],
 	['accessor pair', 'class C { private get value() { return 1 } private set value(v: number) {} }'],
 	['overload', 'class C { private value(x: number): number; private value(x: number) { return x } }'],
-	['parameter property', 'class C { constructor(private value: number) {} }'],
 	['quoted declaration', "class C { private 'value' = 1 }"],
 	['computed declaration', "class C { private ['value'] = 1 }"],
 	['ambient field', 'declare class C { private value: number }'],
 	['declared field', 'class C { declare private value: number }'],
 	['decorator', 'class C { @decorate private value = 1 }'],
 	['static inherited receiver', 'class C { private static value = 1; static read() { return this.value } }'],
-	['private constructor', 'class C { private constructor() {} }'],
 	['class prototype', 'class C { private value = 1; read() { return C.prototype.value } }'],
 	[
 		'static derived constructor',
@@ -240,9 +314,23 @@ test('imported class dot access in another file blocks the fix', () => {
 		others: { 'external.ts': "import { C } from './input'; new C().value" },
 	})
 })
-test('only the remaining rule is exported and recommended', () => {
-	assert.deepEqual(Object.keys(plugin.rules), ['typescript-private'])
-	assert.deepEqual(plugin.configs.recommended.rules, { 'enforce-es-private/typescript-private': 'error' })
+test('recommended enables independent rules and disables the aggregate rule', () => {
+	assert.deepEqual(Object.keys(plugin.rules), [
+		'typescript-private',
+		'fields',
+		'methods',
+		'getters',
+		'setters',
+		'auto-accessors',
+	])
+	assert.deepEqual(plugin.configs.recommended.rules, {
+		'enforce-es-private/typescript-private': 'off',
+		'enforce-es-private/fields': 'error',
+		'enforce-es-private/methods': 'error',
+		'enforce-es-private/getters': 'error',
+		'enforce-es-private/setters': 'error',
+		'enforce-es-private/auto-accessors': 'error',
+	})
 	assert.deepEqual(plugin.configs['legacy-recommended'].rules, plugin.configs.recommended.rules)
 	assert.deepEqual(plugin.configs['recommended-type-checked'].rules, plugin.configs.recommended.rules)
 	assert.equal(plugin.meta.version, '2.0.0')
@@ -262,9 +350,60 @@ const memberCases = [
 	['getters', 'class C { private get value() { return 1 } }'],
 	['setters', 'class C { private set value(v: number) {} }'],
 	['autoAccessors', 'class C { private accessor value = 1 }'],
-	['parameterProperties', 'class C { constructor(private value: number) {} }'],
-	['constructors', 'class C { private constructor() {} }'],
 ]
+
+for (const [member, code] of memberCases) {
+	const ruleName = member === 'autoAccessors' ? 'auto-accessors' : member
+
+	test(
+		`independent rule ${ruleName} reports its own member kind at warning severity`,
+		{ skip: member === 'autoAccessors' && Number.parseFloat(ts.versionMajorMinor) < 4.9 },
+		() => {
+			for (const [otherMember] of memberCases) {
+				const otherRuleName = otherMember === 'autoAccessors' ? 'auto-accessors' : otherMember
+				const { messages } = lint(code, { typed: false, ruleName: otherRuleName, severity: 'warn' })
+
+				assert.equal(messages.length, member === otherMember ? 1 : 0)
+
+				if (messages.length) {
+					assert.equal(messages[0].severity, 1)
+					assert.equal(messages[0].ruleId, `enforce-es-private/${otherRuleName}`)
+				}
+			}
+
+			assert.deepEqual(lint(code, { ruleName, severity: 'off' }).messages, [])
+		},
+	)
+}
+
+test('independent fields rule retains safe autofix', () => {
+	fixed(
+		'class C { private value = 1; private read() { return this.value } }',
+		'class C { #value = 1; private read() { return this.#value } }',
+		{ ruleName: 'fields' },
+	)
+})
+
+test('warning severity retains safe getter autofix', () => {
+	fixed(
+		'class C { private get value() { return 1 } read() { return this.value } }',
+		'class C { get #value() { return 1 } read() { return this.#value } }',
+		{ ruleName: 'getters', severity: 'warn' },
+	)
+})
+
+for (const ruleName of ['getters', 'setters']) {
+	test(`independent ${ruleName} rule never partially fixes an accessor pair`, () => {
+		unchanged('class C { private get value() { return 1 } private set value(v: number) {} }', { ruleName })
+	})
+}
+
+test('independent rules reject aggregate members options', () => {
+	assert.throws(
+		() => lint('class C {}', { ruleName: 'fields', ruleOptions: [{ members: ['fields'] }] }),
+		/enforce-es-private\/fields/,
+	)
+})
 
 for (const [member, code] of memberCases) {
 	test(
@@ -342,6 +481,8 @@ test('members applies equally to static members', () => {
 
 for (const invalidOptions of [
 	{ members: ['unknown'] },
+	{ members: ['constructors'] },
+	{ members: ['parameterProperties'] },
 	{ members: ['fields', 'fields'] },
 	{ members: 'fields' },
 	{ members: [true] },

@@ -68,7 +68,10 @@ test('legacy recommended config loads on ESLint 8 and 9', { skip: major >= 10 },
 	const linter = new Linter({ configType: 'eslintrc' })
 
 	linter.defineParser('typescript', parser)
-	linter.defineRule('enforce-es-private/typescript-private', plugin.rules['typescript-private'])
+
+	for (const [name, rule] of Object.entries(plugin.rules)) {
+		linter.defineRule(`enforce-es-private/${name}`, rule)
+	}
 
 	const messages = linter.verify('class C { private x = 1 }', {
 		parser: 'typescript',
@@ -76,7 +79,7 @@ test('legacy recommended config loads on ESLint 8 and 9', { skip: major >= 10 },
 	})
 
 	assert.equal(messages.length, 1)
-	assert.equal(messages[0].ruleId, 'enforce-es-private/typescript-private')
+	assert.equal(messages[0].ruleId, 'enforce-es-private/fields')
 	assert.equal(messages[0].fix, undefined)
 })
 
@@ -95,7 +98,7 @@ for (const extension of ['ts', 'tsx', 'mts', 'cts']) {
 		})
 
 		assert.equal(messages.length, 1)
-		assert.equal(messages[0].ruleId, 'enforce-es-private/typescript-private')
+		assert.equal(messages[0].ruleId, 'enforce-es-private/fields')
 		assert.equal(messages[0].fix, undefined)
 	})
 }
@@ -108,10 +111,39 @@ test('recommended does not register plugin rules for JavaScript files', () => {
 	assert.deepEqual(messages, [])
 })
 
+test('recommended supports mixed error, warning and off member rules without duplicates', () => {
+	const code =
+		'class C { private x = 1; private method() {} private get value() { return 1 } private set value(v: number) {} private constructor(private readonly api: number) {} }'
+	const config = [
+		plugin.configs.recommended,
+		{
+			rules: {
+				'enforce-es-private/fields': 'error',
+				'enforce-es-private/methods': 'warn',
+				'enforce-es-private/getters': 'off',
+				'enforce-es-private/setters': 'warn',
+				'enforce-es-private/auto-accessors': 'off',
+			},
+		},
+	]
+	const messages = new Linter({ configType: 'flat' }).verify(code, config, {
+		filename: path.join(__dirname, 'input.ts'),
+	})
+
+	assert.deepEqual(
+		messages.map(({ ruleId, severity }) => ({ ruleId, severity })),
+		[
+			{ ruleId: 'enforce-es-private/fields', severity: 2 },
+			{ ruleId: 'enforce-es-private/methods', severity: 1 },
+			{ ruleId: 'enforce-es-private/setters', severity: 1 },
+		],
+	)
+})
+
 test('recommended rules can be overridden with a following config', () => {
 	const messages = new Linter({ configType: 'flat' }).verify(
 		'class C { private x = 1 }',
-		[plugin.configs.recommended, { rules: { 'enforce-es-private/typescript-private': 'off' } }],
+		[plugin.configs.recommended, { rules: { 'enforce-es-private/fields': 'off' } }],
 		{ filename: path.join(__dirname, 'input.ts') },
 	)
 
@@ -134,6 +166,6 @@ test(
 		})
 
 		assert.equal(messages.length, 1)
-		assert.equal(messages[0].ruleId, 'enforce-es-private/typescript-private')
+		assert.equal(messages[0].ruleId, 'enforce-es-private/fields')
 	},
 )
