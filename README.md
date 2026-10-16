@@ -237,18 +237,3 @@ Replace `...enforceEsPrivate.configs.recommended[0]` inside an object with
 manually setting parser options, use `configs['recommended-type-checked']`.
 Custom file patterns can be supplied with an object spread. The
 `legacy-recommended` configuration retains its existing shape and behavior.
-
-## Development and releases
-
-```bash
-npm ci
-npm test
-npm run lint
-npm pack --dry-run
-```
-
-Builds clean `dist` before compiling so removed rules cannot leak into a package.
-CI tests ESLint 8.57, 9 and 10, including the minimum TypeScript/parser versions.
-For maintainers, pushing `v2.0.0` runs validation and creates a GitHub Release
-from [the checked-in release notes](releases/v2.0.0.md), including breaking changes
-and migration examples. Tagging and npm publication are separate, explicit steps.

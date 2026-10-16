@@ -40,7 +40,6 @@
 -   Support ESLint `^8.57.0 || ^9.0.0 || ^10.0.0` and TypeScript `>=4.8.4 <6.1.0`.
 -   Regression tests and CI compatibility coverage across ESLint major versions.
 -   Flat and legacy configuration examples, autofix limitations and migration guide.
--   GitHub Release automation with explicit breaking changes and migration notes.
 
 ## [1.0.1]
 

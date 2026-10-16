@@ -1,4 +1,4 @@
-name: GitHub Release
+name: Stage npm package and prepare GitHub Release
 
 on:
     push:
@@ -7,32 +7,79 @@ on:
 permissions:
     contents: read
 
+concurrency:
+    group: release-${{ github.ref }}
+    cancel-in-progress: false
+
 jobs:
     validate:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
+            - uses: actions/checkout@v6
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@v6
               with:
                   node-version: '24'
-                  cache: npm
-            - run: npm ci
-            - run: npm test
-            - run: npm run lint
-            - run: npm pack --dry-run
+                  package-manager-cache: false
             - name: Validate version and release notes
               env:
                   RELEASE_TAG: ${{ github.ref_name }}
               run: node scripts/check-release.cjs
+
+    compatibility:
+        uses: ./.github/workflows/ci.yml
+
+    stage:
+        needs: [validate, compatibility]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@v6
+              with:
+                  node-version: '24'
+                  registry-url: https://registry.npmjs.org
+                  package-manager-cache: false
+            - name: Install npm with staged publishing support
+              run: npm install --global npm@11.21.0
+            - run: npm ci --ignore-scripts
+            # prepack cleans dist and builds the package before staging it.
+            - name: Stage package with npm Trusted Publishing
+              run: npm stage publish --tag latest
+            - name: Record next steps
+              run: |
+                  cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+                  ## Package staged for review
+
+                  Open npmjs.com → Staged Packages, review this package version,
+                  and select Approve with 2FA to publish it to the npm registry.
+
+                  After approval, publish the draft GitHub Release from Releases.
+                  EOF
+
     release:
-        needs: validate
+        needs: stage
         runs-on: ubuntu-latest
         permissions:
             contents: write
         steps:
-            - uses: actions/checkout@v4
-            - name: Publish GitHub Release
+            - uses: actions/checkout@v6
+              with:
+                  persist-credentials: false
+            - name: Prepare draft GitHub Release
               env:
                   GH_TOKEN: ${{ github.token }}
                   RELEASE_TAG: ${{ github.ref_name }}
-              run: gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG — native ES private members" --notes-file "releases/$RELEASE_TAG.md"
+              run: |
+                  if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+                    echo "GitHub Release already exists for $RELEASE_TAG."
+                  else
+                    gh release create "$RELEASE_TAG" --verify-tag --draft \
+                      --title "$RELEASE_TAG — native ES private members" \
+                      --notes-file "releases/$RELEASE_TAG.md"
+                  fi

@@ -4,6 +4,7 @@ on:
     push:
         branches: ['**']
     pull_request:
+    workflow_call:
 
 permissions:
     contents: read
@@ -34,7 +35,7 @@ jobs:
                   node-version: '24'
                   cache: npm
             - run: npm ci
-            - run: npm run lint
+            - run: npm run format:check
             - run: npm run build
             # Install the consumer toolchain separately from the build toolchain.
             - run: node scripts/prepare-compat.cjs
