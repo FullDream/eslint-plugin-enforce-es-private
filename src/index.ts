@@ -1,8 +1,8 @@
 import { rules } from './rules'
-import { FlatConfig } from '@typescript-eslint/utils/ts-eslint'
+import { TSESLint } from '@typescript-eslint/utils'
+import * as parser from '@typescript-eslint/parser'
 
-
-type RulesType = Record<`enforce-es-private/${keyof typeof rules}`, FlatConfig.RuleLevel>
+type RulesType = Record<`enforce-es-private/${keyof typeof rules}`, TSESLint.FlatConfig.RuleLevel>
 
 const { name, version } =
 	// `import`ing here would bypass the TSConfig's `"rootDir": "src"`
@@ -11,15 +11,25 @@ const { name, version } =
 
 const recommendedRules: RulesType = {
 	'enforce-es-private/typescript-private': 'error',
-	'enforce-es-private/underscore-prefix': 'error',
 }
 
-const plugin = {
+const plugin: {
+	meta: { name: string; version: string }
+	rules: typeof rules
+	configs: {
+		recommended: TSESLint.FlatConfig.Config
+		'recommended-type-checked': TSESLint.FlatConfig.Config
+		'legacy-recommended': TSESLint.ClassicConfig.Config
+	}
+} = {
 	meta: { name, version },
 	rules,
 	configs: {
 		get recommended() {
 			return recommended
+		},
+		get 'recommended-type-checked'() {
+			return recommendedTypeChecked
 		},
 		'legacy-recommended': {
 			plugins: ['enforce-es-private'],
@@ -28,12 +38,18 @@ const plugin = {
 	},
 }
 
-const recommended = [
-	{
-		plugins: { 'enforce-es-private': plugin },
-		rules: recommendedRules,
-	},
-] as const
+const recommended: TSESLint.FlatConfig.Config = {
+	name: 'enforce-es-private/recommended',
+	files: ['**/*.{ts,tsx,mts,cts}'],
+	languageOptions: { parser },
+	plugins: { 'enforce-es-private': plugin },
+	rules: recommendedRules,
+}
 
+const recommendedTypeChecked: TSESLint.FlatConfig.Config = {
+	...recommended,
+	name: 'enforce-es-private/recommended-type-checked',
+	languageOptions: { parser, parserOptions: { projectService: true } },
+}
 
-module.exports = plugin;
+export = plugin

@@ -7,5 +7,5 @@ export interface EnforceEsPrivateDocs {
 }
 
 export const createRule = ESLintUtils.RuleCreator<EnforceEsPrivateDocs>(
-	name => `https://github.com/FullDream/eslint-plugin-enforce-es-private/docs/${name}.md`,
+	name => `https://github.com/FullDream/eslint-plugin-enforce-es-private/blob/main/docs/rules/${name}.md`,
 )

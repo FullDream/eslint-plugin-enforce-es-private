@@ -1,0 +1,38 @@
+name: GitHub Release
+
+on:
+    push:
+        tags: ['v*']
+
+permissions:
+    contents: read
+
+jobs:
+    validate:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
+            - run: npm ci
+            - run: npm test
+            - run: npm run lint
+            - run: npm pack --dry-run
+            - name: Validate version and release notes
+              env:
+                  RELEASE_TAG: ${{ github.ref_name }}
+              run: node scripts/check-release.cjs
+    release:
+        needs: validate
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v4
+            - name: Publish GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  RELEASE_TAG: ${{ github.ref_name }}
+              run: gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TAG — native ES private members" --notes-file "releases/$RELEASE_TAG.md"
