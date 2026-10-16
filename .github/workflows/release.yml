@@ -1,6 +1,7 @@
 name: Stage npm package and prepare GitHub Release
 
 on:
+    workflow_dispatch:
     push:
         tags: ['v*']
 
@@ -8,12 +9,14 @@ permissions:
     contents: read
 
 concurrency:
-    group: release-${{ github.ref }}
+    group: release
     cancel-in-progress: false
 
 jobs:
     validate:
         runs-on: ubuntu-latest
+        outputs:
+            tag: ${{ steps.version.outputs.tag }}
         steps:
             - uses: actions/checkout@v6
               with:
@@ -23,15 +26,45 @@ jobs:
                   node-version: '24'
                   package-manager-cache: false
             - name: Validate version and release notes
+              id: version
               env:
-                  RELEASE_TAG: ${{ github.ref_name }}
+                  RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
               run: node scripts/check-release.cjs
 
     compatibility:
+        needs: validate
         uses: ./.github/workflows/ci.yml
 
-    stage:
+    tag:
         needs: [validate, compatibility]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: Create release tag after successful checks
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+              run: |
+                  release_sha=$(git rev-parse HEAD)
+                  if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+                    tag_sha=$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")
+                    if [ "$tag_sha" != "$release_sha" ]; then
+                      echo "::error::Tag $RELEASE_TAG already points to a different commit."
+                      exit 1
+                    fi
+                    echo "Tag $RELEASE_TAG already points to the checked commit."
+                  else
+                    gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+                      -f ref="refs/tags/$RELEASE_TAG" -f sha="$release_sha" --silent
+                  fi
+
+    stage:
+        needs: [validate, tag]
         runs-on: ubuntu-latest
         permissions:
             contents: read
@@ -63,7 +96,7 @@ jobs:
                   EOF
 
     release:
-        needs: stage
+        needs: [validate, stage]
         runs-on: ubuntu-latest
         permissions:
             contents: write
@@ -74,7 +107,7 @@ jobs:
             - name: Prepare draft GitHub Release
               env:
                   GH_TOKEN: ${{ github.token }}
-                  RELEASE_TAG: ${{ github.ref_name }}
+                  RELEASE_TAG: ${{ needs.validate.outputs.tag }}
               run: |
                   if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
                     echo "GitHub Release already exists for $RELEASE_TAG."
