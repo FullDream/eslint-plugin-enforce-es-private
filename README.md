@@ -24,9 +24,23 @@ available with ESLint 8 and 9; use flat config with ESLint 10.
 
 ## Installation
 
+If your project already has compatible versions of ESLint, TypeScript and
+`@typescript-eslint/parser`, install the plugin:
+
+```bash
+npm install --save-dev eslint-plugin-enforce-es-private
+```
+
+When setting up ESLint for TypeScript from scratch, install the plugin and its
+required peer dependencies:
+
 ```bash
 npm install --save-dev eslint typescript @typescript-eslint/parser eslint-plugin-enforce-es-private
 ```
+
+The recommended flat configs configure `@typescript-eslint/parser` automatically;
+you do not need to import it in your ESLint config. The parser must still be
+available as a dependency. See [Compatibility](#compatibility) for supported versions.
 
 ## Usage: flat config
 
